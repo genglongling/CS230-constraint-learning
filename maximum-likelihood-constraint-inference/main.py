@@ -118,8 +118,8 @@ def action_plot(grid, obstacles, iternum):
         plt.plot([i+w/2,i+w/2], [j+w/2,j+w/2-w/2*down], color='red')
         plt.plot([i+w/2,i+w/2-w/2*left], [j+w/2,j+w/2], color='red')
         plt.plot([i+w/2,i+w/2+w/2*right], [j+w/2,j+w/2], color='red')
-        plt.plot([i+w/2,i+w/2-w/2*ul], [j+w/2,j+w/2+w/2*ul], color='green') 
-        plt.plot([i+w/2,i+w/2-w/2*dl], [j+w/2,j+w/2-w/2*dl], color='green')      
+        plt.plot([i+w/2,i+w/2-w/2*ul], [j+w/2,j+w/2+w/2*ul], color='green')
+        plt.plot([i+w/2,i+w/2-w/2*dl], [j+w/2,j+w/2-w/2*dl], color='green')
         plt.plot([i+w/2,i+w/2+w/2*ur], [j+w/2,j+w/2+w/2*ur], color='green')
         plt.plot([i+w/2,i+w/2+w/2*dr], [j+w/2,j+w/2-w/2*dr], color='green')
     plt.xlabel("%d" % iternum)
@@ -134,6 +134,11 @@ feature_map[:, [4,5,6,7], 0] += np.sqrt(2) # distance
 feature_map[stationary, :, 1] += 1 # stationary
 feature_wts = np.array([-0.1, 0])
 
+# **Reward history list initialization** - New list to track rewards
+reward_history = []  # <-- NEW CODE
+success_rate_history = []
+violation_rate_history = []
+
 if args.do_constraint_inference:
 
     print("nominal mdp")
@@ -144,9 +149,11 @@ if args.do_constraint_inference:
     state_seqs, action_seqs = trajs, action_trajs
     demonstrations = [state_seqs, action_seqs]
 
+    # 200
     n_constraints = 200; kl_div_eps = 0.0001; demos = 100;
     nominal_mdp.backward_pass(max(lens))
     nominal_mdp.forward_pass(max(lens))
+
     if args.policy_plot:
         action_plot(nominal_mdp.local_action_probs[:, :, 0], nominal_mdp.obstacles+nominal_mdp.state_constraints, 101-1)
     unaccrued_features = find_unaccrued_features(demonstrations, nominal_mdp)
@@ -161,7 +168,7 @@ if args.do_constraint_inference:
         fah = estimated_mdp.feature_accrual_history[unaccrued_features, -1]
         max_index = np.argmax(fah)
         eliminated_trajectories[i] = fah[max_index]
-        
+
         if eliminated_trajectories[i] == 0:
             d_kl_history[i+1] = d_kl_history[i]
             continue
@@ -170,6 +177,15 @@ if args.do_constraint_inference:
         estimated_mdp = GridMDP(estimated_mdp, likely_constraints[i:i+1], True)
         estimated_mdp.backward_pass(max(lens))
         estimated_mdp.forward_pass(max(lens))
+        current_reward = estimated_mdp.get_reward()
+        reward_history.append(current_reward)
+        current_sr = estimated_mdp.get_success_rate()
+        success_rate_history.append(current_sr)
+        print(success_rate_history)
+        current_vr = estimated_mdp.get_violation_rate()
+        violation_rate_history.append(current_vr)
+        print(violation_rate_history)
+
         if not os.path.exists("pickles"):
             os.mkdir("pickles")
         with open("pickles/new_demonstrations.pickle", 'wb') as handle:
@@ -199,3 +215,38 @@ if args.do_constraint_inference:
         os.mkdir("pickles")
     with open('pickles/constraints.pickle', 'wb') as handle:
         pickle.dump(constraints, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+
+# metric 1: average reward
+# **Plot the reward history** - Plotting average reward across epochs
+import csv
+
+# Save the reward_history list to a CSV file
+with open('reward_history.csv', 'w', newline='') as file:
+    writer = csv.writer(file)
+    writer.writerow(["Epoch", "Average Reward"])  # Optionally add a header row
+    for epoch, reward in enumerate(reward_history, start=1):
+        writer.writerow([epoch, reward])
+
+# Save the reward_history list to a CSV file
+with open('success_rate_history.csv', 'w', newline='') as file:
+    writer = csv.writer(file)
+    writer.writerow(["Epoch", "Success Rate History"])  # Optionally add a header row
+    for epoch, sr in enumerate(success_rate_history, start=1):
+        writer.writerow([epoch, sr])
+
+# Save the reward_history list to a CSV file
+with open('violation_rate_history.csv', 'w', newline='') as file:
+    writer = csv.writer(file)
+    writer.writerow(["Epoch", "Violation Rate History"])  # Optionally add a header row
+    for epoch, vr in enumerate(violation_rate_history, start=1):
+        writer.writerow([epoch, vr])
+
+plt.plot(range(1, len(reward_history) + 1), reward_history, label="Average Reward", color='blue', marker='o')  # <-- NEW CODE
+plt.xlabel('Epoch')  # <-- NEW CODE
+plt.ylabel('Average Reward')  # <-- NEW CODE
+plt.title('Average Reward over Epochs')  # <-- NEW CODE
+plt.grid(True)  # <-- NEW CODE
+plt.legend()  # <-- NEW CODE
+plt.savefig('reward.png')  # <-- SAVE PLOT
+plt.show()  # <-- NEW CODE

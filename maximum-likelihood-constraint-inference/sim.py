@@ -87,6 +87,7 @@ try:
 except:
     print("\nNo constraints.pickle! Simulation rendering will not show constraints")
 
+
 class DiscreteGrid(viz.Group):
     def __init__(self, x, y, w, h, arr):
         self.arr = arr
@@ -172,15 +173,41 @@ if not args.multi_goal:
     centerpts = cpts
     frames = frms
 
+# if args.show_new_demos:
+#     cpts = []
+#     frms = []
+#     frm = 0
+#     try:
+#         demos = pickle.load(open("pickles/new_demonstrations.pickle", 'rb'))
+#     except:
+#         print("Cannot find pickles/new_demonstrations.pickle!")
+#         exit(0)
+#     for i in range(len(demos)):
+#         demo = demos[i].reshape(-1)
+#         cpt = []
+#         frmvec = []
+#         for item in demo:
+#             cpt += [delocalize(item, canvas.items[-1])]
+#             frmvec += [frm]
+#             frm += 1
+#         cpts += [np.array(cpt)]
+#         frms += [np.array(frmvec)]
+#     centerpts = cpts
+#     frames = frms
+
+import matplotlib.pyplot as plt
+import numpy as np
+
 if args.show_new_demos:
     cpts = []
     frms = []
     frm = 0
     try:
         demos = pickle.load(open("pickles/new_demonstrations.pickle", 'rb'))
-    except:
+    except FileNotFoundError:
         print("Cannot find pickles/new_demonstrations.pickle!")
         exit(0)
+
     for i in range(len(demos)):
         demo = demos[i].reshape(-1)
         cpt = []
@@ -191,8 +218,28 @@ if args.show_new_demos:
             frm += 1
         cpts += [np.array(cpt)]
         frms += [np.array(frmvec)]
+
     centerpts = cpts
     frames = frms
+
+    # Combine dataset and demo trajectories for plotting
+    fig, ax = plt.subplots(figsize=(10, 10))
+
+    for demo in demos:
+        demo = demo.reshape(-1)
+        cpt = []
+        for item in demo:
+            cpt += [delocalize(item, canvas.items[-1])]
+        cpt = np.array(cpt)
+        ax.plot(cpt[:, 0], cpt[:, 1], marker='o', color='blue')
+
+    # Customize the plot
+    ax.set_title("ICL Trajectories")
+    ax.set_xlabel("X Coordinate")
+    ax.set_ylabel("Y Coordinate")
+    ax.legend()
+    ax.grid(True)
+
 
 ### Collect start points
 startpts = []
@@ -204,6 +251,28 @@ for i in range(len(centerpts)):
     coords = localize(*centerpts[i][-1, :], canvas.items[-1])
     if coords != (-1, -1): 
         endpts += [coords]
+
+# Plot the dataset trajectory (center points)
+for demo_pts in centerpts:
+    demo_pts = np.array(demo_pts)
+    ax.plot(demo_pts[:, 0], demo_pts[:, 1], marker='x', color='yellow')
+
+# If constraints exist, plot them as red triangles with x, y values
+if constraints and "state" in constraints:
+    pt = []
+    for state_value in constraints["state"]:
+        # print(state_value)
+        # # Use state_value as the x-coordinate and idx as the y-coordinate (index in the list)
+        pt += [delocalize(state_value, canvas.items[-1])]   # x-coordinate
+    pt = np.array(pt)
+    ax.plot(pt[:, 0], pt[:, 1], 'rx', markersize=10)
+
+# Save the combined plot
+output_path = "./visualization/trajectory.png"
+plt.savefig(output_path, dpi=300)
+plt.close()  # Close the plot to free memory
+print(f"Visualization of demo and dataset trajectories saved as {output_path}")
+
 
 ### Visualize
 if args.visualize:
