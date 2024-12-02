@@ -198,6 +198,24 @@ if not args.multi_goal:
 import matplotlib.pyplot as plt
 import numpy as np
 
+# Combine dataset and demo trajectories for plotting
+fig, ax = plt.subplots(figsize=(10, 10))
+
+# Plot the dataset trajectory (center points)
+for demo_pts in centerpts:
+    demo_pts = np.array(demo_pts)
+    ax.plot(demo_pts[:, 0], demo_pts[:, 1], marker='x', color='yellow')
+
+# If constraints exist, plot them as red triangles with x, y values
+if constraints and "state" in constraints:
+    pt = []
+    for state_value in constraints["state"]:
+        # print(state_value)
+        # # Use state_value as the x-coordinate and idx as the y-coordinate (index in the list)
+        pt += [delocalize(state_value, canvas.items[-1])]   # x-coordinate
+    pt = np.array(pt)
+    ax.plot(pt[:, 0], pt[:, 1], 'rx', markersize=10)
+
 if args.show_new_demos:
     cpts = []
     frms = []
@@ -222,16 +240,13 @@ if args.show_new_demos:
     centerpts = cpts
     frames = frms
 
-    # Combine dataset and demo trajectories for plotting
-    fig, ax = plt.subplots(figsize=(10, 10))
-
     for demo in demos:
         demo = demo.reshape(-1)
         cpt = []
         for item in demo:
             cpt += [delocalize(item, canvas.items[-1])]
         cpt = np.array(cpt)
-        ax.plot(cpt[:, 0], cpt[:, 1], marker='o', color='blue')
+        ax.plot(cpt[:, 0], cpt[:, 1], marker='o') #color='blue'
 
     # Customize the plot
     ax.set_title("ICL Trajectories")
@@ -252,20 +267,6 @@ for i in range(len(centerpts)):
     if coords != (-1, -1): 
         endpts += [coords]
 
-# Plot the dataset trajectory (center points)
-for demo_pts in centerpts:
-    demo_pts = np.array(demo_pts)
-    ax.plot(demo_pts[:, 0], demo_pts[:, 1], marker='x', color='yellow')
-
-# If constraints exist, plot them as red triangles with x, y values
-if constraints and "state" in constraints:
-    pt = []
-    for state_value in constraints["state"]:
-        # print(state_value)
-        # # Use state_value as the x-coordinate and idx as the y-coordinate (index in the list)
-        pt += [delocalize(state_value, canvas.items[-1])]   # x-coordinate
-    pt = np.array(pt)
-    ax.plot(pt[:, 0], pt[:, 1], 'rx', markersize=10)
 
 # Save the combined plot
 output_path = "./visualization/trajectory.png"
